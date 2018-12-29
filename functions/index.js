@@ -8,6 +8,42 @@ admin.initializeApp(functions.config().firebase);
 // Get a database reference
 var db = admin.database();
 
+exports.getMyMailboxes = functions.https.onRequest((req, res) => {
+    var userId = req.query.userId
+    var mailboxesOwnedByThisUser = []
+    var userMailboxesResult = []
+
+    return db.ref('/MailboxOwnership')
+    .orderByChild('userId')
+    .equalTo(userId)
+    .once("value").then(snapshot => {
+      snapshot.forEach(childSnapshot => {
+        if(mailboxesOwnedByThisUser.indexOf(childSnapshot.val().mailboxId) < 0){
+          mailboxesOwnedByThisUser.push(childSnapshot.val().mailboxId)
+        }
+      })
+
+      return Promise.all(mailboxesOwnedByThisUser)
+    }).then(mailboxesOwnedByThisUser => {
+      return db.ref('/Mailboxes')
+      .once('value').then(snapshot => {
+        snapshot.forEach(childSnapshot => {
+          if(mailboxesOwnedByThisUser.indexOf(parseInt(childSnapshot.key)) > -1){
+            userMailboxesResult.push({
+              "mailboxId": childSnapshot.key,
+              "address": childSnapshot.val().address,
+              "city": childSnapshot.val().city,
+              "zipCode": childSnapshot.val().zipCode,
+              "numberOfMailItems": childSnapshot.val().numberOfMailItems
+            })
+          }
+        })
+
+        return res.send(JSON.stringify(userMailboxesResult))
+      })
+    })
+});
+
 exports.sendPushNotification = functions.database.ref('MailItems/{id}').onCreate((change, context) => {
     var usersToBeNotified = []
     var deviceExpoTokens = []
