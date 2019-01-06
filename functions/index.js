@@ -44,6 +44,27 @@ exports.getMyMailboxes = functions.https.onRequest((req, res) => {
     })
 });
 
+exports.getMailboxItems = functions.https.onRequest((req, res) => {
+  var mailboxId = req.query.mailboxId
+  var mailboxItems = []
+
+  return db.ref('/MailItems')
+    .orderByChild('mailboxId')
+    .equalTo(parseInt(mailboxId))
+    .once("value").then(snapshot => {
+      snapshot.forEach(childSnapshot => {
+        mailboxItems.push({
+          "mailItemId": childSnapshot.key,
+          "ocrText": childSnapshot.val().ocrText,
+          "snapshotUrl": childSnapshot.val().snapshotUrl,
+          "status": childSnapshot.val().status
+        })
+      })
+
+      return res.send(JSON.stringify(mailboxItems))
+    })
+});
+
 exports.sendPushNotification = functions.database.ref('MailItems/{id}').onCreate((change, context) => {
     var usersToBeNotified = []
     var deviceExpoTokens = []
